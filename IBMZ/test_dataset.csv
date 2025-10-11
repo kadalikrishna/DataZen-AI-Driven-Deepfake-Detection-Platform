@@ -1,0 +1,12 @@
+media_url,channel_id,description
+https://youtube.com/watch?v=fake_political_speech,YouTube,Suspected fake political statement
+https://twitter.com/user/status/123456,Twitter,Manipulated celebrity endorsement
+https://facebook.com/video/789012,Facebook,Suspicious financial advice video
+https://instagram.com/p/abc123,Instagram,Fake product review
+https://tiktok.com/@user/video/456789,TikTok,Deepfake dance challenge
+https://example.com/news/breaking_video.mp4,News_Network,Unverified news footage
+https://linkedin.com/posts/company_123,LinkedIn,Fake CEO announcement
+https://vimeo.com/987654321,Vimeo,Synthetic interview content
+https://reddit.com/r/videos/comments/xyz,Reddit,Suspected voice clone
+https://example.com/media/advertisement.mp4,Ad_Network,Manipulated brand commercial
+
