@@ -1,7 +1,6 @@
 # DataZen - AI-Driven Deepfake Detection Platform
 
 **IBM Z Datathon 2025**
-video link : https://youtu.be/gVlY_-fKycs  
 
 A full-stack web application for AI-driven deepfake detection and societal impact prediction, simulating the IBM Z/z/OS AI Framework.
 
