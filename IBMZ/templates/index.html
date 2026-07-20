@@ -1,310 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataZen - AI Deepfake Detection Platform</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/main.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DataZen | Multimodal Deepfake Screening</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="/static/css/results.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <i class="fas fa-shield-alt"></i>
-                <span class="brand-name">DataZen</span>
-                <span class="brand-subtitle">IBM Z Datathon 2025</span>
-            </div>
-            <ul class="nav-menu">
-                <li><a href="#" class="nav-link active" data-view="scan">
-                    <i class="fas fa-search"></i> Scan Media
-                </a></li>
-                <li><a href="#" class="nav-link" data-view="dashboard">
-                    <i class="fas fa-chart-line"></i> Dashboard
-                </a></li>
-            </ul>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="#"><span class="brandmark">DZ</span><span>DataZen<small>Media Forensics</small></span></a>
+      <nav><button class="nav active" data-view="analyze">Analyze</button><button class="nav" data-view="history">History</button></nav>
+      <div class="model-state"><i></i><span id="model-state">Local CPU models</span></div>
+    </header>
+    <main>
+      <section id="analyze-view" class="view active">
+        <div class="hero">
+          <div><span class="eyebrow">MULTIMODAL AUTHENTICITY SCREENING</span><h1>Inspect media.<br><em>Question the signal.</em></h1>
+          <p>Real pretrained inference for images, video frames, and speech audio—processed locally on this machine.</p></div>
+          <div class="hero-stat"><strong>3</strong><span>specialized<br>media pipelines</span></div>
         </div>
-    </nav>
-
-    <!-- Main Container -->
-    <div class="main-container">
-        <!-- Dashboard View -->
-        <div id="dashboard-view" class="view active">
-            <div class="view-header">
-                <h1>Detection Dashboard</h1>
-                <p>Real-time monitoring of deepfake threats across digital platforms</p>
+        <div class="workspace">
+          <section class="panel upload-panel">
+            <div class="panel-heading"><span>01</span><div><h2>Select evidence</h2><p>Upload one media file for local analysis.</p></div></div>
+            <form id="upload-form">
+              <label id="dropzone" class="dropzone" for="file-input">
+                <input id="file-input" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.webm,.wav,.flac,.mp3,.ogg,.m4a" hidden>
+                <span class="scan-icon"><b></b></span><strong>Drop evidence here</strong><span>or click to browse files</span>
+                <small>Images · Video · Speech audio — maximum 50 MB</small>
+              </label>
+              <div id="file-card" class="file-card hidden"><div class="file-type" id="file-type">FILE</div><div><strong id="file-name"></strong><span id="file-meta"></span></div><button type="button" id="remove-file" aria-label="Remove selected file">×</button></div>
+              <button id="analyze-button" class="primary" type="submit" disabled><span>Run forensic analysis</span><b>→</b></button>
+            </form>
+            <div class="privacy"><span>◎</span><p><strong>Private by design</strong>Your file is deleted immediately after inference.</p></div>
+          </section>
+          <section class="panel result-panel">
+            <div class="panel-heading"><span>02</span><div><h2>Screening result</h2><p>Model evidence and interpretation.</p></div></div>
+            <div id="empty-result" class="empty-result"><div class="radar"><i></i><i></i><i></i><b></b></div><strong>Awaiting media</strong><span>Your evidence report will appear here.</span></div>
+            <div id="loading-result" class="loading-result hidden"><div class="loader"></div><strong>Models are examining the signal</strong><span id="loading-copy">First analysis may take longer while models load.</span></div>
+            <div id="error-result" class="error-result hidden"><strong>Analysis could not complete</strong><p id="error-copy"></p></div>
+            <div id="result" class="result hidden">
+              <div class="verdict-row"><div><span class="label">VERDICT</span><h3 id="verdict-label"></h3><p id="result-file"></p></div><div id="score-ring" class="score-ring"><strong id="fake-score"></strong><span>fake score</span></div></div>
+              <div class="meter"><div class="meter-labels"><span>Likely authentic</span><span>Uncertain</span><span>Likely fake</span></div><div class="track"><i id="score-marker"></i></div></div>
+              <div class="facts"><div><span>Media</span><strong id="media-type"></strong></div><div><span>Samples</span><strong id="sample-count"></strong></div><div><span>Time</span><strong id="process-time"></strong></div></div>
+              <div class="evidence"><div class="subhead"><span>Sample evidence</span><small>Fake probability</small></div><div id="evidence-list"></div></div>
+              <div class="model-note"><span>MODEL</span><strong id="model-name"></strong><p id="limitations"></p></div>
             </div>
-
-            <!-- KPI Cards -->
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-icon blue">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="kpi-content">
-                        <h3 id="total-detections">0</h3>
-                        <p>Total Detections</p>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon red">
-                        <i class="fas fa-fire"></i>
-                    </div>
-                    <div class="kpi-content">
-                        <h3 id="high-risk-count">0</h3>
-                        <p>High-Risk Incidents</p>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon green">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="kpi-content">
-                        <h3 id="verified-count">0</h3>
-                        <p>Verified Threats</p>
-                    </div>
-                </div>
-
-                <div class="kpi-card">
-                    <div class="kpi-icon purple">
-                        <i class="fas fa-link"></i>
-                    </div>
-                    <div class="kpi-content">
-                        <h3 id="blockchain-count">0</h3>
-                        <p>Blockchain Entries</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Risk Level Banner -->
-            <div class="risk-banner" id="risk-banner">
-                <div class="risk-content">
-                    <i class="fas fa-info-circle"></i>
-                    <div>
-                        <strong>Current Risk Level:</strong>
-                        <span id="risk-level">Normal</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Top Incidents Table -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-list"></i> Top 5 High-Risk Incidents</h2>
-                    <button class="btn btn-secondary" onclick="refreshDashboard()">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Detection ID</th>
-                                <th>Media Source</th>
-                                <th>Deepfake Score</th>
-                                <th>Sentiment</th>
-                                <th>Risk Level</th>
-                                <th>Status</th>
-                                <th>Timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody id="top-incidents-tbody">
-                            <tr>
-                                <td colspan="7" class="no-data">No incidents detected yet</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+          </section>
         </div>
-
-
-        <!-- Scan Media View -->
-        <div id="scan-view" class="view">
-            <div class="view-header">
-                <h1>Scan Media for Deepfakes</h1>
-                <p>Submit media for AI-powered deepfake detection and sentiment analysis</p>
-            </div>
-
-            <!-- File Upload Card -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-upload"></i> Upload File for Analysis</h2>
-                </div>
-                <div class="form-container">
-                    <form id="upload-form" onsubmit="submitFileUpload(event)">
-                        <div class="upload-area" id="upload-area">
-                            <div class="upload-icon">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                            </div>
-                            <h3>Drag & Drop Files Here</h3>
-                            <p>or click to browse</p>
-                            <input type="file" id="file-input" name="file" 
-                                   accept=".png,.jpg,.jpeg,.gif,.mp4,.avi,.mov,.wmv,.mp3,.wav,.ogg,.webm" 
-                                   required hidden>
-                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
-                                <i class="fas fa-folder-open"></i> Select File
-                            </button>
-                            <small class="upload-info">
-                                Supported formats: Images (PNG, JPG, GIF), Videos (MP4, AVI, MOV, WEBM), Audio (MP3, WAV, OGG)
-                                <br>Max file size: 100MB
-                            </small>
-                        </div>
-
-                        <div id="file-preview" class="file-preview hidden">
-                            <div class="preview-header">
-                                <strong>Selected File:</strong>
-                                <button type="button" class="btn-close-preview" onclick="clearFileSelection()">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                            <div class="preview-info">
-                                <i class="fas fa-file" id="file-icon"></i>
-                                <div class="preview-details">
-                                    <div id="file-name"></div>
-                                    <div id="file-size" class="text-secondary"></div>
-                                    <div id="file-type" class="text-secondary"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="upload-channel-id">Source Channel (Optional)</label>
-                            <input type="text" id="upload-channel-id" name="channel_id" 
-                                   placeholder="Upload_Channel">
-                            <small>Identify the source or channel of this media</small>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" id="upload-submit-btn">
-                            <i class="fas fa-check-circle"></i> Analyze Uploaded File
-                        </button>
-                    </form>
-
-                    <!-- Upload Result -->
-                    <div id="upload-result" class="scan-result hidden">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                            <h3>Analysis Results</h3>
-                            <button class="btn btn-secondary" onclick="clearUploadResults()">
-                                <i class="fas fa-times-circle"></i> Clear Results
-                            </button>
-                        </div>
-                        <div class="result-content" id="upload-result-content">
-                            <!-- Results populated dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- URL Scan Card -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-link"></i> Scan by URL</h2>
-                </div>
-                <div class="form-container">
-                    <form id="scan-form" onsubmit="submitScan(event)">
-                        <div class="form-group">
-                            <label for="media-url">Media URL</label>
-                            <input type="url" id="media-url" name="media_url" 
-                                   placeholder="https://example.com/video.mp4" required>
-                            <small>Enter the URL of the media file to scan</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="channel-id">Channel ID (Optional)</label>
-                            <input type="text" id="channel-id" name="channel_id" 
-                                   placeholder="e.g., YouTube, Twitter, Facebook">
-                            <small>Enter the source platform (leave blank to auto-detect from URL)</small>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" id="scan-submit-btn">
-                            <i class="fas fa-search"></i> Scan Media
-                        </button>
-                    </form>
-
-                    <!-- Scan Result -->
-                    <div id="scan-result" class="scan-result hidden">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                            <h3>Scan Results</h3>
-                            <button class="btn btn-secondary" onclick="clearScanResults()">
-                                <i class="fas fa-times-circle"></i> Clear Results
-                            </button>
-                        </div>
-                        <div class="result-content" id="result-content">
-                            <!-- Results populated dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Batch CSV Testing -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-file-csv"></i> Batch Testing with CSV</h2>
-                </div>
-                <div class="form-container">
-                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                        Upload a CSV file with multiple media URLs to test in batch. 
-                        <a href="/test_dataset.csv" download style="color: var(--primary-color); font-weight: 600;">
-                            <i class="fas fa-download"></i> Download Sample CSV
-                        </a>
-                    </p>
-                    
-                    <form id="csv-upload-form" onsubmit="submitCSVBatch(event)">
-                        <div class="form-group">
-                            <label for="csv-file">CSV Dataset File</label>
-                            <input type="file" id="csv-file" accept=".csv" required 
-                                   style="padding: 12px; border: 2px solid var(--border-color); border-radius: 10px; width: 100%;">
-                            <small>Required columns: media_url, channel_id, description</small>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary" id="csv-submit-btn">
-                            <i class="fas fa-rocket"></i> Process Batch
-                        </button>
-                    </form>
-                    
-                    <!-- Batch Results -->
-                    <div id="batch-result" class="scan-result hidden">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                            <h3>Batch Processing Results</h3>
-                            <button class="btn btn-secondary" onclick="clearBatchResults()">
-                                <i class="fas fa-times-circle"></i> Clear
-                            </button>
-                        </div>
-                        <div id="batch-summary" class="batch-summary"></div>
-                        <div id="batch-details" class="result-content"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Export Data -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="fas fa-download"></i> Export Results</h2>
-                </div>
-                <div class="demo-section">
-                    <p>Export all incident data to CSV for further analysis and reporting.</p>
-                    <button class="btn btn-success" onclick="exportToCSV()">
-                        <i class="fas fa-file-export"></i> Export All Incidents to CSV
-                    </button>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="toast hidden">
-        <i class="fas fa-info-circle"></i>
-        <span id="toast-message"></span>
-    </div>
-
-    <script src="/static/js/app.js"></script>
-</body>
-</html>
-
+      </section>
+      <section id="history-view" class="view"><div class="history-head"><div><span class="eyebrow">SESSION RECORD</span><h1>Analysis history</h1></div><button id="clear-history" class="secondary">Clear history</button></div><div id="stats" class="stats"></div><div id="history-list" class="history-list"></div></section>
+    </main>
+    <footer><span>DataZen screening system</span><p>Research assistance only. Do not use as the sole basis for consequential decisions.</p></footer>
+  </div>
+  <div id="toast" class="toast" role="status"></div><script src="/static/js/app.js"></script>
+</body></html>

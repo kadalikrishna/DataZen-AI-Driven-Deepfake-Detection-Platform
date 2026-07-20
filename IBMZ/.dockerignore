@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.pyc
+uploads
+*.log
+test_dataset.csv
