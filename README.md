@@ -2,6 +2,12 @@
 
 **IBM Z Datathon 2025**
 
+- **Live demo:** https://curriculum-attractions-viewers-realtors.trycloudflare.com
+- **Project video:** https://youtu.be/gVlY_-fKycs
+- **Current implementation and setup:** [IBMZ/README.md](IBMZ/README.md)
+
+> The live demo uses a temporary Cloudflare Tunnel and is available only while the local inference server is running.
+
 A full-stack web application for AI-driven deepfake detection and societal impact prediction, simulating the IBM Z/z/OS AI Framework.
 
 ## 🚀 Features

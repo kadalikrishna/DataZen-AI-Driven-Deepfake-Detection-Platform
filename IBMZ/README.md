@@ -12,6 +12,12 @@ fullWidth: true
 
 DataZen now performs real, local pretrained-model inference. It does not generate random scores.
 
+## Live demo
+
+https://curriculum-attractions-viewers-realtors.trycloudflare.com
+
+The demo is served through a temporary Cloudflare Tunnel and is available only while the local inference server is running. If the link is offline, follow the Windows setup below to run DataZen locally.
+
 ## Supported media
 
 - Images: JPG, JPEG, PNG, WebP
