@@ -1,113 +1,114 @@
-"""Local pretrained deepfake detection for visual and speech media."""
-import os, threading, time
+'''Low-memory ONNX screening for images and sampled video frames.'''
+import json, math, os, subprocess, tempfile, threading, time
 from pathlib import Path
+import numpy as np
+from PIL import Image, UnidentifiedImageError
 
-VISUAL_MODEL_ID=os.getenv("DATAZEN_VISUAL_MODEL","dima806/deepfake_vs_real_image_detection")
-AUDIO_MODEL_ID=os.getenv("DATAZEN_AUDIO_MODEL","Vansh180/deepfake-audio-wav2vec2")
+VISUAL_MODEL_ID=os.getenv('DATAZEN_VISUAL_MODEL','dima806/deepfake_vs_real_image_detection')
+MODEL_PATH=Path(os.getenv('DATAZEN_MODEL_PATH',Path(__file__).resolve().parent.parent/'models'/'model_int8.onnx'))
+MODEL_CONFIG_PATH=Path(os.getenv('DATAZEN_MODEL_CONFIG',MODEL_PATH.with_name('model_config.json')))
+MAX_IMAGE_PIXELS=25_000_000
+MAX_VIDEO_SECONDS=30.0
+MAX_VIDEO_FRAMES=4
 
 class DetectionError(RuntimeError): pass
 
 class DeepfakeDetector:
     def __init__(self):
-        self._visual=self._audio=None
-        self._vlock,self._alock=threading.Lock(),threading.Lock()
+        self._session=self._config=None
+        self._lock=threading.Lock()
 
-    def _load(self, model_id, audio=False):
+    def _bundle(self):
+        if self._session is None:
+            with self._lock:
+                if self._session is None:
+                    try:
+                        import onnxruntime as ort
+                        if not MODEL_PATH.is_file() or not MODEL_CONFIG_PATH.is_file():
+                            raise FileNotFoundError('Optimized model files are missing.')
+                        options=ort.SessionOptions()
+                        options.intra_op_num_threads=options.inter_op_num_threads=1
+                        options.enable_mem_pattern=False
+                        self._session=ort.InferenceSession(str(MODEL_PATH),sess_options=options,providers=['CPUExecutionProvider'])
+                        self._config=json.loads(MODEL_CONFIG_PATH.read_text(encoding='utf-8'))
+                    except Exception as exc:
+                        self._session=None
+                        raise DetectionError('The optimized detection model could not be loaded.') from exc
+        return self._session,self._config
+
+    @staticmethod
+    def _open_image(path):
         try:
-            import torch
-            from transformers import AutoImageProcessor,AutoFeatureExtractor
-            from transformers import AutoModelForImageClassification,AutoModelForAudioClassification
-            if audio:
-                processor=AutoFeatureExtractor.from_pretrained(model_id)
-                model=AutoModelForAudioClassification.from_pretrained(model_id,use_safetensors=True)
-            else:
-                processor=AutoImageProcessor.from_pretrained(model_id)
-                model=AutoModelForImageClassification.from_pretrained(model_id,use_safetensors=True)
-            model.to("cpu").eval(); return processor,model,torch
-        except Exception as exc:
-            raise DetectionError(f"Could not load {model_id}. Run setup_models.py while online.") from exc
+            with Image.open(path) as source:
+                width,height=source.size
+                if width*height>MAX_IMAGE_PIXELS:
+                    raise DetectionError('Image dimensions are too large. Use an image under 25 megapixels.')
+                return source.convert('RGB')
+        except DetectionError: raise
+        except (UnidentifiedImageError,OSError,Image.DecompressionBombError) as exc:
+            raise DetectionError('Image is corrupt or unreadable.') from exc
 
-    def _bundle(self,audio=False):
-        attr,lock,mid=("_audio",self._alock,AUDIO_MODEL_ID) if audio else ("_visual",self._vlock,VISUAL_MODEL_ID)
-        if getattr(self,attr) is None:
-            with lock:
-                if getattr(self,attr) is None: setattr(self,attr,self._load(mid,audio))
-        return getattr(self,attr)
+    def _score_image(self,image):
+        session,config=self._bundle()
+        height,width=config.get('size',[224,224])
+        values=np.asarray(image.resize((int(width),int(height)),Image.Resampling.BILINEAR),dtype=np.float32)/255.0
+        mean=np.asarray(config.get('image_mean',[0.5]*3),dtype=np.float32)
+        std=np.asarray(config.get('image_std',[0.5]*3),dtype=np.float32)
+        values=((values-mean)/std).transpose(2,0,1)[None,...]
+        logits=session.run([session.get_outputs()[0].name],{session.get_inputs()[0].name:values})[0][0].astype(np.float64)
+        probabilities=np.exp(logits-logits.max()); probabilities/=probabilities.sum()
+        return float(probabilities[config['fake_indices']].sum())
 
-    def _scores(self,bundle,inputs):
-        _,model,torch=bundle
-        with torch.inference_mode(): probs=torch.softmax(model(**inputs).logits,dim=-1)
-        terms=("fake","spoof","synthetic","generated","deepfake","ai")
-        indices=[int(i) for i,label in model.config.id2label.items() if any(t in str(label).lower() for t in terms)]
-        if not indices and len(model.config.id2label)==2: indices=[1]
-        if not indices: raise DetectionError("Model has no fake/spoof label.")
-        return [float(row[indices].sum().item()) for row in probs]
-
-    def _result(self,kind,score,model,started,evidence):
-        verdict,label=("likely_fake","Likely synthetic or manipulated") if score>.65 else (("likely_real","Likely authentic") if score<.35 else ("inconclusive","Inconclusive — review recommended"))
-        return {"media_type":kind,"verdict":verdict,"verdict_label":label,"fake_probability":round(score,4),
-          "real_probability":round(1-score,4),"model":model,"processing_time_ms":round((time.perf_counter()-started)*1000),
-          "evidence":evidence,"limitations":"Research screening result, not proof. Accuracy can drop for unseen generators, compression, noise, crops, or non-speech audio."}
+    @staticmethod
+    def _result(kind,score,started,evidence):
+        verdict,label=('likely_fake','Likely synthetic or manipulated') if score>.65 else (('likely_real','Likely authentic') if score<.35 else ('inconclusive','Inconclusive - review recommended'))
+        return {'media_type':kind,'verdict':verdict,'verdict_label':label,'fake_probability':round(score,4),
+          'real_probability':round(1-score,4),'model':f'{VISUAL_MODEL_ID} (INT8 ONNX)',
+          'processing_time_ms':round((time.perf_counter()-started)*1000),'evidence':evidence,
+          'limitations':'Research screening result, not proof. Video results use sampled frames and may miss manipulations between samples.'}
 
     def analyze_image(self,path):
-        from PIL import Image,UnidentifiedImageError
-        started=time.perf_counter()
-        try:
-            with Image.open(path) as source: image=source.convert("RGB")
-        except (UnidentifiedImageError,OSError) as exc: raise DetectionError("Image is corrupt or unreadable.") from exc
-        bundle=self._bundle(); score=self._scores(bundle,bundle[0](images=[image],return_tensors="pt"))[0]
-        return self._result("image",score,VISUAL_MODEL_ID,started,[{"sample":1,"fake_probability":round(score,4)}])
+        started=time.perf_counter(); score=self._score_image(self._open_image(path))
+        return self._result('image',score,started,[{'sample':1,'fake_probability':round(score,4)}])
 
-    def analyze_video(self,path,max_frames=12):
-        import cv2
-        from PIL import Image
-        started=time.perf_counter(); cap=cv2.VideoCapture(str(path))
-        if not cap.isOpened(): raise DetectionError("Video is corrupt or unsupported.")
+    @staticmethod
+    def _video_duration(path):
         try:
-            total=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)); fps=float(cap.get(cv2.CAP_PROP_FPS) or 0)
-            if total<=0 or fps<=0: raise DetectionError("Video frames could not be read.")
-            duration=total/fps
-            if duration>120: raise DetectionError("Videos must be 120 seconds or shorter.")
-            count=min(max_frames,total)
-            positions=[0] if count==1 else [round(i*(total-1)/(count-1)) for i in range(count)]
-            frames,times=[],[]
-            for pos in positions:
-                cap.set(cv2.CAP_PROP_POS_FRAMES,pos); ok,frame=cap.read()
-                if ok:
-                    frames.append(Image.fromarray(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))); times.append(pos/fps)
-        finally: cap.release()
-        if not frames: raise DetectionError("No readable video frames were found.")
-        bundle=self._bundle(); scores=self._scores(bundle,bundle[0](images=frames,return_tensors="pt"))
-        evidence=[{"sample":i+1,"timestamp_seconds":round(t,2),"fake_probability":round(s,4)} for i,(t,s) in enumerate(zip(times,scores))]
-        result=self._result("video",sum(scores)/len(scores),VISUAL_MODEL_ID,started,evidence)
-        result.update({"frames_analyzed":len(frames),"duration_seconds":round(duration,2)}); return result
+            completed=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','json',str(path)],
+              capture_output=True,text=True,timeout=20,check=True)
+            duration=float(json.loads(completed.stdout)['format']['duration'])
+            if not math.isfinite(duration) or duration<=0: raise ValueError
+            return duration
+        except (subprocess.SubprocessError,OSError,ValueError,KeyError,json.JSONDecodeError) as exc:
+            raise DetectionError('Video is corrupt or unsupported.') from exc
 
-    def analyze_audio(self,path,max_windows=8):
-        import librosa,numpy as np
-        started=time.perf_counter()
-        try: waveform,sr=librosa.load(path,sr=16000,mono=True)
-        except Exception as exc: raise DetectionError("Audio is corrupt or unsupported.") from exc
-        if waveform.size<1600: raise DetectionError("Audio must contain at least 0.1 seconds of sound.")
-        duration=waveform.size/sr
-        if duration>300: raise DetectionError("Audio must be 5 minutes or shorter.")
-        size=sr*4
-        starts=[0] if waveform.size<=size else np.linspace(0,waveform.size-size,min(max_windows,max(2,int(duration//4))),dtype=int).tolist()
-        windows=[]
-        for start in starts:
-            window=waveform[start:start+size]
-            if window.size<size: window=np.pad(window,(0,size-window.size))
-            windows.append(window.astype("float32"))
-        bundle=self._bundle(True); inputs=bundle[0](windows,sampling_rate=sr,return_tensors="pt",padding=True)
-        scores=self._scores(bundle,inputs)
-        evidence=[{"sample":i+1,"timestamp_seconds":round(start/sr,2),"fake_probability":round(score,4)} for i,(start,score) in enumerate(zip(starts,scores))]
-        result=self._result("audio",sum(scores)/len(scores),AUDIO_MODEL_ID,started,evidence)
-        result.update({"segments_analyzed":len(windows),"duration_seconds":round(duration,2)}); return result
+    @staticmethod
+    def _extract_frame(video_path,timestamp,output_path):
+        try:
+            subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-ss',f'{timestamp:.3f}','-i',str(video_path),
+              '-frames:v','1','-an','-y',str(output_path)],capture_output=True,timeout=45,check=True)
+        except (subprocess.SubprocessError,OSError) as exc:
+            raise DetectionError('A video frame could not be decoded.') from exc
+
+    def analyze_video(self,path):
+        started=time.perf_counter(); duration=self._video_duration(path)
+        if duration>MAX_VIDEO_SECONDS: raise DetectionError('Videos must be 30 seconds or shorter.')
+        count=min(MAX_VIDEO_FRAMES,max(1,math.ceil(duration/5)))
+        timestamps=[duration*(index+1)/(count+1) for index in range(count)]
+        evidence=[]
+        with tempfile.TemporaryDirectory(prefix='datazen_frames_') as directory:
+            for index,timestamp in enumerate(timestamps,start=1):
+                frame=Path(directory)/f'frame_{index}.jpg'; self._extract_frame(path,timestamp,frame)
+                score=self._score_image(self._open_image(frame))
+                evidence.append({'sample':index,'timestamp_seconds':round(timestamp,2),'fake_probability':round(score,4)})
+        score=sum(item['fake_probability'] for item in evidence)/len(evidence)
+        result=self._result('video',score,started,evidence)
+        result.update({'frames_analyzed':len(evidence),'duration_seconds':round(duration,2)}); return result
 
     def analyze(self,path,media_type):
-        try: method={"image":self.analyze_image,"video":self.analyze_video,"audio":self.analyze_audio}[media_type]
-        except KeyError as exc: raise DetectionError("Unsupported media type.") from exc
-        return method(Path(path))
+        methods={'image':self.analyze_image,'video':self.analyze_video}
+        if media_type not in methods: raise DetectionError('Unsupported media type.')
+        return methods[media_type](Path(path))
 
     def status(self):
-        return {"engine":"local_pretrained_models","device":"cpu","visual_model":VISUAL_MODEL_ID,
-          "visual_loaded":self._visual is not None,"audio_model":AUDIO_MODEL_ID,"audio_loaded":self._audio is not None}
+        return {'engine':'quantized_onnx','device':'cpu','visual_model':VISUAL_MODEL_ID,'visual_loaded':self._session is not None}

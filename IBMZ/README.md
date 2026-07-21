@@ -1,62 +1,56 @@
----
-title: DataZen Deepfake Screening
-emoji: 🛡️
-colorFrom: green
-colorTo: gray
-sdk: docker
-app_port: 7860
-fullWidth: true
----
+# DataZen Image and Video Deepfake Screening
 
-# DataZen Multimodal Deepfake Screening
-
-DataZen now performs real, local pretrained-model inference. It does not generate random scores.
-
-## Live demo
-
-https://curriculum-attractions-viewers-realtors.trycloudflare.com
-
-The demo is served through a temporary Cloudflare Tunnel and is available only while the local inference server is running. If the link is offline, follow the Windows setup below to run DataZen locally.
+DataZen performs local deepfake screening with a quantized ONNX visual model. It is designed to fit the 512 MB Render Free web-service limit.
 
 ## Supported media
 
-- Images: JPG, JPEG, PNG, WebP
-- Video: MP4, MOV, AVI, WebM (up to 120 seconds; 12 sampled frames)
-- Speech audio: WAV, FLAC, MP3, OGG, M4A (up to 5 minutes; sampled 4-second segments)
-- Maximum upload size: 50 MB
+- Images: JPG, JPEG, PNG and WebP, under 20 MB and 25 megapixels
+- Videos: MP4, MOV, AVI and WebM, under 20 MB and 30 seconds
+- Videos are represented by at most four evenly spaced frames
 
-Visual media uses `dima806/deepfake_vs_real_image_detection`. Speech uses `Vansh180/deepfake-audio-wav2vec2`. Results are research screening signals, not proof, and may not generalize to new generation methods or heavily compressed media.
+The service uses `dima806/deepfake_vs_real_image_detection`. Results are research screening signals, not proof, and may not generalize to new generators or heavily compressed media.
 
-## Windows setup
+## Deploy to Render Free
 
-Use 64-bit Python 3.10 or newer. From PowerShell:
+1. Push this directory to a GitHub repository.
+2. In Render, choose **New > Blueprint**.
+3. Connect the repository and apply `render.yaml`.
+4. Wait for the Docker build to download, export and quantize the model.
+5. Open the generated `onrender.com` URL and test a small image first.
 
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe setup_models.py
-.\start.ps1
-```
+No environment variables, database or persistent disk are required. Free services sleep after inactivity, so the first request can take about a minute. Session history is in memory and resets after a restart.
 
-Open <http://127.0.0.1:5000>. The model setup command downloads both checkpoints once; cached models can then run offline.
+## Docker
 
-## Docker deployment
-
-The included Dockerfile is ready for a Hugging Face Docker Space and exposes port 7860. It installs CPU-only PyTorch, downloads both model checkpoints during the image build, and runs Flask through Gunicorn.
+The multi-stage Docker build uses PyTorch only while exporting the model. The final image contains ONNX Runtime, Flask, Pillow and FFmpeg.
 
 ```powershell
 docker build -t datazen .
-docker run --rm -p 7860:7860 datazen
+docker run --rm -p 10000:10000 datazen
+```
+
+Open <http://127.0.0.1:10000>.
+
+## Local development without Docker
+
+Use 64-bit Python 3.11:
+
+```powershell
+py -3.11 -m venv .venv
+./.venv/Scripts/python.exe -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+./.venv/Scripts/python.exe -m pip install -r requirements-build.txt
+./.venv/Scripts/python.exe setup_models.py
+./.venv/Scripts/python.exe -m pip install -r requirements.txt
+./.venv/Scripts/python.exe app.py
 ```
 
 ## API
 
-- `POST /api/v1/upload` — multipart form with a `file` field
-- `GET /api/v1/model/status` — models, load state, formats, and limits
-- `GET /api/v1/incidents` — current in-memory session history
-- `GET /api/v1/stats` — session verdict counts
-- `POST /api/v1/clear` — clear session history
-- `GET /api/v1/health` — service health
+- `POST /api/v1/upload` - multipart form with a `file` field
+- `GET /api/v1/model/status` - model, formats and limits
+- `GET /api/v1/incidents` - in-memory session history
+- `GET /api/v1/stats` - session verdict counts
+- `POST /api/v1/clear` - clear session history
+- `GET /api/v1/health` - health check
 
-Uploaded media is processed through a temporary file and deleted after inference. History is held in memory and resets when the server restarts.
+Uploaded media and extracted video frames are deleted immediately after inference.

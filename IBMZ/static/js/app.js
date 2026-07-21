@@ -1,15 +1,17 @@
 const $=id=>document.getElementById(id);let selectedFile=null;
 const input=$("file-input"),drop=$("dropzone"),form=$("upload-form"),button=$("analyze-button");
+document.querySelector(".hero p").textContent="Memory-efficient ONNX inference for images and sampled video frames.";
+document.querySelector(".dropzone small").textContent="Images and videos up to 30 seconds - maximum 20 MB";
 
 document.querySelectorAll(".nav").forEach(tab=>tab.addEventListener("click",()=>{
  document.querySelectorAll(".nav,.view").forEach(x=>x.classList.remove("active"));tab.classList.add("active");
  $(tab.dataset.view+"-view").classList.add("active");if(tab.dataset.view==="history")loadHistory();
 }));
 
-fetch("/api/v1/model/status").then(r=>r.json()).then(s=>{$("model-state").textContent=`Local CPU · ${s.visual_loaded||s.audio_loaded?"models active":"ready on first scan"}`}).catch(()=>{$("model-state").textContent="Server unavailable"});
+fetch("/api/v1/model/status").then(r=>r.json()).then(s=>{$("model-state").textContent=`ONNX CPU - ${s.visual_loaded?"model active":"ready on first scan"}`}).catch(()=>{$("model-state").textContent="Server unavailable"});
 
 function choose(file){
- if(!file)return;if(file.size>50*1024*1024){toast("File exceeds the 50 MB limit");return}
+ if(!file)return;if(file.size>20*1024*1024){toast("File exceeds the 20 MB limit");return}
  selectedFile=file;const ext=file.name.split(".").pop().toUpperCase();$("file-type").textContent=ext;
  $("file-name").textContent=file.name;$("file-meta").textContent=`${(file.size/1024/1024).toFixed(2)} MB · ${file.type||"media"}`;
  $("file-card").classList.remove("hidden");button.disabled=false;

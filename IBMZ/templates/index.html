@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DataZen | Multimodal Deepfake Screening</title>
+  <title>DataZen | Image and Video Deepfake Screening</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/main.css">
@@ -18,18 +18,18 @@
     <main>
       <section id="analyze-view" class="view active">
         <div class="hero">
-          <div><span class="eyebrow">MULTIMODAL AUTHENTICITY SCREENING</span><h1>Inspect media.<br><em>Question the signal.</em></h1>
-          <p>Real pretrained inference for images, video frames, and speech audio—processed locally on this machine.</p></div>
-          <div class="hero-stat"><strong>3</strong><span>specialized<br>media pipelines</span></div>
+          <div><span class="eyebrow">IMAGE AND VIDEO AUTHENTICITY SCREENING</span><h1>Inspect media.<br><em>Question the signal.</em></h1>
+          <p>Memory-efficient ONNX inference for images and sampled video frames.</p></div>
+          <div class="hero-stat"><strong>4</strong><span>frames sampled<br>per video maximum</span></div>
         </div>
         <div class="workspace">
           <section class="panel upload-panel">
             <div class="panel-heading"><span>01</span><div><h2>Select evidence</h2><p>Upload one media file for local analysis.</p></div></div>
             <form id="upload-form">
               <label id="dropzone" class="dropzone" for="file-input">
-                <input id="file-input" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.webm,.wav,.flac,.mp3,.ogg,.m4a" hidden>
+                <input id="file-input" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.avi,.webm" hidden>
                 <span class="scan-icon"><b></b></span><strong>Drop evidence here</strong><span>or click to browse files</span>
-                <small>Images · Video · Speech audio — maximum 50 MB</small>
+                <small>Images and videos up to 30 seconds - maximum 20 MB</small>
               </label>
               <div id="file-card" class="file-card hidden"><div class="file-type" id="file-type">FILE</div><div><strong id="file-name"></strong><span id="file-meta"></span></div><button type="button" id="remove-file" aria-label="Remove selected file">×</button></div>
               <button id="analyze-button" class="primary" type="submit" disabled><span>Run forensic analysis</span><b>→</b></button>

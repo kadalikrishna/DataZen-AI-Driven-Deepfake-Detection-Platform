@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: datazen-deepfake-screening
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit
