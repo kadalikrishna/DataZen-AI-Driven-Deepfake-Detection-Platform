@@ -12,17 +12,17 @@ The service uses `dima806/deepfake_vs_real_image_detection`. Results are researc
 
 ## Deploy to Render Free
 
-1. Push this directory to a GitHub repository.
-2. In Render, choose **New > Blueprint**.
-3. Connect the repository and apply `render.yaml`.
-4. Wait for the Docker build to download, export and quantize the model.
-5. Open the generated `onrender.com` URL and test a small image first.
+1. In Render, choose **New > Web Service** and connect this GitHub repository.
+2. Set the branch to `main` and Root Directory to `IBMZ`.
+3. Select the Docker runtime and Free instance type.
+4. Set the health check path to `/api/v1/health`; leave build and start commands empty.
+5. Deploy, open the generated `onrender.com` URL, and test a small image first.
 
 No environment variables, database or persistent disk are required. Free services sleep after inactivity, so the first request can take about a minute. Session history is in memory and resets after a restart.
 
 ## Docker
 
-The multi-stage Docker build uses PyTorch only while exporting the model. The final image contains ONNX Runtime, Flask, Pillow and FFmpeg.
+The repository includes the verified quantized model. The Docker image contains only ONNX Runtime, Flask, Pillow and FFmpeg, avoiding memory-heavy model conversion during deployment.
 
 ```powershell
 docker build -t datazen .
@@ -37,12 +37,11 @@ Use 64-bit Python 3.11:
 
 ```powershell
 py -3.11 -m venv .venv
-./.venv/Scripts/python.exe -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
-./.venv/Scripts/python.exe -m pip install -r requirements-build.txt
-./.venv/Scripts/python.exe setup_models.py
 ./.venv/Scripts/python.exe -m pip install -r requirements.txt
 ./.venv/Scripts/python.exe app.py
 ```
+
+Install FFmpeg separately and add it to `PATH` to analyze videos during local development.
 
 ## API
 
